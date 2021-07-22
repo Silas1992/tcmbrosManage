@@ -154,7 +154,7 @@
                 type="date"
                 placeholder="选择日期">
             </el-date-picker>
-            <div style="margin-top:10px">
+            <div style="margin-top:10px" v-if="num == 2">
                 
                 <el-button 
                 v-if="this.e_name == undefined ||this.e_name == ''"
@@ -206,10 +206,10 @@
             </el-input> -->
              <!-- 选择优惠活动 -->
             
-            <el-tag effect="dark" v-if="value !== 2 && num ==1">
+            <el-tag effect="dark" v-if="(value !== 2||value == 0) && num ==1">
                 优惠活动
             </el-tag>
-            <el-select style="margin-left:15px" v-if="value !== 2 && num == 1" 
+            <el-select style="margin-left:15px" v-if="(value !== 2||value == 0) && num == 1" 
             v-model="activity" clearable placeholder="请选择">
                 <el-option
                 v-for="item in activityRuleList"
@@ -343,7 +343,7 @@ export default {
                 value: 2,
                 label: '以旧换新'
                 }],
-            value: '',
+            value: 0,
             newBalance:0,
 
             //当前最新的会员
@@ -1075,37 +1075,40 @@ export default {
                             let deNewMoney = (cash * deNewRate).toFixed(2)
 
                             let deNewType = '续卡'
-                            console.log('续卡金额与参数',deNewRate,deNewMoney)
-                            const result =await app.callFunction({
-                                name:'add-deductRecord',
-                                data:{
-                                    employee:consumItem.employee,
-                                    price:cash,
-                                    deMoney:deNewMoney,
-                                    goodsType:0,
-                                    goodsNo:0,
-                                    goodsName:'',
-                                    deType:deNewType,//1会员，散客，办卡
-                                    deRate:deNewRate,//办卡提成率
-                                    orderNo:memberInfo.card_no,
-                                    memberOpenId:memberInfo._openid,
-                                    memberName:memberInfo.name,
-                                    memberTel:memberInfo.tel,
-                                    card_no:memberInfo.card_no,
-                                    sub_id:this.currentSub,
-                                    state:1,
-                                    createTime:currentTime,
-                                    updateTime:updateTime,
-                                    year:year,
-                                    month:month,
-                                    date:day
-                                }
+                            if(cash >= 1000){
+                                console.log('续卡金额与参数',deNewRate,deNewMoney)
+                                const result =await app.callFunction({
+                                    name:'add-deductRecord',
+                                    data:{
+                                        employee:consumItem.employee,
+                                        price:cash,
+                                        deMoney:deNewMoney,
+                                        goodsType:0,
+                                        goodsNo:0,
+                                        goodsName:'',
+                                        deType:deNewType,//1会员，散客，办卡
+                                        deRate:deNewRate,//办卡提成率
+                                        orderNo:memberInfo.card_no,
+                                        memberOpenId:memberInfo._openid,
+                                        memberName:memberInfo.name,
+                                        memberTel:memberInfo.tel,
+                                        card_no:memberInfo.card_no,
+                                        sub_id:this.currentSub,
+                                        state:1,
+                                        createTime:currentTime,
+                                        updateTime:updateTime,
+                                        year:year,
+                                        month:month,
+                                        date:day
+                                    }
 
-                            })
-                            if(result.result.id == undefined){
-                                return this.$message.error('生成续卡提成记录失败')
+                                })
+                                if(result.result.id == undefined){
+                                    return this.$message.error('生成续卡提成记录失败')
+                                }
+                                this.$message.success('生成续卡提成记录成功')
                             }
-                            this.$message.success('生成续卡提成记录成功')
+                            
                         }
                     }
                 }
