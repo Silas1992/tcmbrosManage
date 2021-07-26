@@ -25,7 +25,7 @@
                 <el-table-column align="center" label="总价" prop="total_price" width="150"></el-table-column>
                 <el-table-column align="center" label="支付方式" prop="pay_type" width="150"></el-table-column>
                 <el-table-column align="center" label="卡号" prop="card_no" width="150"></el-table-column>
-                
+                <el-table-column align="center" label="创建日期" prop="create_time" width="150"></el-table-column>
                 <el-table-column align="center" label="操作" width="250">
                     <template slot-scope="scope">
                         <!-- 订单详情 -->

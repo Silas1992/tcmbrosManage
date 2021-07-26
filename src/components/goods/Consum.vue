@@ -1186,7 +1186,7 @@ export default {
                     }
                     
                     console.log('新卡参数',deNewRate,deNewMoney)
-                    const result =await app.callFunction({
+                    const result = await app.callFunction({
                         name:'add-deductRecord',
                         data:{
                             employee:shopping.employee,

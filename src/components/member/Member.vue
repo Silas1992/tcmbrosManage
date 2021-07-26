@@ -24,6 +24,7 @@
             <el-tabs style="margin-top:20px" type="border-card" v-model="activeName" @tab-click="handleClick">
                 <el-tab-pane label="会员" name="first"></el-tab-pane>
                 <el-tab-pane label="游客" name="second"></el-tab-pane>
+                <el-tab-pane label="优惠卷" name="thirdly"></el-tab-pane>
                 <!-- 用户列表区域 -->
                 <el-table :data="memberlist" size="small" border stripe>
                     <el-table-column align="center" label="卡号" prop="card_no" width="100"></el-table-column>
@@ -53,12 +54,17 @@
                             </el-tooltip>
                         </template>
                     </el-table-column>
-                    <el-table-column align="center" label="按次充卡" width="100">
+                    <el-table-column align="center" label="按次充卡" width="180">
                         <template slot-scope="scope">
                             <el-tooltip  effect="dark" content="充值按次商品" placement="top" :enterable="false">
                                 <!-- 设置按钮 -->
-                                <el-button type="warning" icon="el-icon-s-ticket" size="mini"
+                                <el-button type="primary" icon="el-icon-s-ticket" size="mini"
                                 :data='scope.id' @click="showRechargeDialog(scope.row._id,2)"></el-button>
+                            </el-tooltip>
+                            <el-tooltip  effect="dark" content="剩余数量" placement="top" :enterable="false">
+                                <!-- 设置按钮 -->
+                                <el-button type="warning" icon="el-icon-info" size="mini"
+                                :data='scope.id' @click="showTimeDialog(scope.row._id)"></el-button>
                             </el-tooltip>
                         </template>
                     </el-table-column>
@@ -90,6 +96,19 @@
                 :total="total">
             </el-pagination>
         </el-card>
+        <el-dialog
+        :title="优惠券详情" :visible.sync="TimeDialogVisible"
+        width="50%" @close="TimeDialogClosed" >
+            <el-table :data="myCoupons" size="small" style="margin-bottom:20px">
+                <el-table-column align="center" label="活动名称" prop="title" width="100"></el-table-column>
+                <el-table-column align="center" label="商品编号" prop="goods_no" width="100"></el-table-column>
+                <el-table-column align="center" label="商品名称" prop="goods_name" width="100"></el-table-column>
+                <el-table-column align="center" label="单价" prop="goods_price" width="150"></el-table-column>
+                <el-table-column align="center" label="总价" prop="totalPrice" width="100"></el-table-column>
+                <el-table-column align="center" label="总次数" prop="totalTime" width="100"></el-table-column>
+                <el-table-column align="center" label="已使用" prop="usedTime" width="100"></el-table-column>
+            </el-table>  
+        </el-dialog>
         <!-- 充值会员页面的对话框 -->
         <el-dialog
         :title="memberTitle" :visible.sync="rechargeDialogVisible"
@@ -330,6 +349,7 @@ export default {
             activityRuleList:[],
             activity:'',
             memberTitle:'会员充值',
+            myCoupons:[],
 
             //办理人
             employeeList:[],
@@ -370,6 +390,7 @@ export default {
             editDialogVisible:false,
             //控制会员充值功能的显示与隐藏
             rechargeDialogVisible:false,
+            TimeDialogVisible:false,
             //查询到的用户对象
             editForm:{},
             //修改表单的验证规则对象
@@ -472,6 +493,8 @@ export default {
                 this.type = 1
             }else if(name == 'second'){
                 this.type = 2
+            }else if(name == 'thirdly'){
+                this.type = 3
             }
             //设置好参数后，调用获取商品列表的接口
             this.getMemberList()
@@ -567,7 +590,10 @@ export default {
         },
         //监听会员充值对话框关闭事件
         rechargeDialogClosed(){
-
+            this.showRechargeDialog == false
+        },
+        TimeDialogClosed(){
+            this.showTimeDialog == false
         },
         //展示Employee对话框
         async selectEmployee(){
@@ -1238,6 +1264,35 @@ export default {
                 }
             )
         },
+        
+        async showTimeDialog(id){
+            this.TimeDialogVisible = true
+            //根据ID查询用户信息接口
+            const app = cloudbase.init({
+                env: "cloud1-9gt8jfexd120c4fc"
+            });
+            
+            const db = app.database();
+            const result = await db.collection("member")
+            .where({
+                _id:id
+            })
+            .get()
+            if(result.length == 0){
+                return this.$message.error('查询用户信息失败！')
+            }
+            this.memberInfo = result.data
+            let openid = result.data[0]._openid
+            const resCoupon = await db.collection("my_coupon")
+            .where({
+                _openid:openid
+            })
+            .get()
+            if(resCoupon.length == 0){
+                return this.$message.error('查询用户信息失败！')
+            }
+            this.myCoupons = resCoupon.data
+        },
 
         //展示会员充值对话框
         async showRechargeDialog(id,num){
@@ -1365,6 +1420,7 @@ export default {
                         },
                     })
                     this.memberlist = res.result.data
+                    console.log('优惠卷的集合为哈哈',this.memberlist)
                     //2、查询数组
                     const resT = await this.$cloudbase.callFunction({
                         name: "get-member",
