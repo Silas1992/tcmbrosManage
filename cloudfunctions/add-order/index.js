@@ -19,6 +19,7 @@ exports.main = async (event,context) => {
         recall_id:event.recallId,
         recall_name:event.recallName,
         recall_cause:event.recallCause,
+        couponId:event.couponId,
         state:event.state,
         remark:event.remark,
         type:event.type,

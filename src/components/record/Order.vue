@@ -11,7 +11,7 @@
             <!-- 搜索区域 -->
             <el-row :gutter="20">
                 <el-col :span="7">
-                    <el-input placeholder="请输入内容" @keyup.enter.native="getOrderList" v-model="name" clearable @clear="getOrderList">
+                    <el-input placeholder="请输入会员卡号" @keyup.enter.native="getOrderList" v-model="name" clearable @clear="getOrderList">
                         <el-button slot="append" icon="el-icon-search" @click="getOrderList"></el-button>
                     </el-input>
                 </el-col>
@@ -19,6 +19,7 @@
             <!-- 用户列表区域 -->
             <el-table :data="orderlist" border :row-class-name="tableRowClassName" 
             show-summary :summary-method="getSummaries" stripe size="small">
+                <el-table-column align="center" label="优惠券" prop="couponId" v-if="false" width="180"></el-table-column>
                 <el-table-column align="center" label="单号" prop="order_no" width="180"></el-table-column>
                 <el-table-column align="center" label="会员" prop="member_name" width="100"></el-table-column>
                 <el-table-column align="center" label="电话" prop="member_tel" width="150"></el-table-column>
@@ -36,7 +37,7 @@
                         size="mini" @click="showEditDialog(scope.row._id)"></el-button>
                         <!-- 撤销按钮 -->
                         <el-button type="danger" icon="el-icon-back" 
-                        size="mini" @click="backout(scope.row.order_no,scope.row.member_tel,scope.row.total_price)"></el-button>
+                        size="mini" @click="backout(scope.row.order_no,scope.row.member_tel,scope.row.pay_type,scope.row.couponId,scope.row.total_price)"></el-button>
                     </template>
                 </el-table-column>
             </el-table>
@@ -232,7 +233,7 @@ export default {
 
         },
         //撤销操作
-        async backout(id,tel,total_price){
+        async backout(id,tel,pay_type,couponId,total_price){
             const name = window.sessionStorage.getItem('token')
             if(name == 'tcmbros' || name == 'tcmbro1'){
                 const confirmResult = await this.$confirm(
@@ -282,26 +283,46 @@ export default {
                 console.log('删除后的结果为',resDeduct.result)
 
                 //将之前的余额返还到该用户的账户中！
-                console.log('当前用户的电话和总价为',tel,total_price)
-                //1.根据电话号码查询余额
-                const resM = await db.collection("member")
-                .where({
-                    tel:tel
-                }).get()
-                let balance = resM.data[0].balance
-                let consum_points = resM.data[0].consum_points
-                let cumulant = resM.data[0].cumulant
-                console.log('查询到的结果为',resM.data[0])
-                const resUpdateMemeber = await db.collection("member")
-                .where({
-                    tel:tel
-                })
-                .update({
-                    balance:balance + total_price,
-                    consum_points:consum_points - total_price,
-                    cumulant:cumulant - total_price
-                })
-                console.log('修改完毕',resUpdateMemeber)
+                console.log('当前用户的电话和总价为',tel,total_price,pay_type)
+                if(pay_type !== '优惠券抵扣'){
+                    //1.根据电话号码查询余额
+                    const resM = await db.collection("member")
+                    .where({
+                        tel:tel
+                    }).get()
+                    let balance = resM.data[0].balance
+                    let consum_points = resM.data[0].consum_points
+                    let cumulant = resM.data[0].cumulant
+                    console.log('查询到的结果为',resM.data[0])
+                    const resUpdateMemeber = await db.collection("member")
+                    .where({
+                        tel:tel
+                    })
+                    .update({
+                        balance:balance + total_price,
+                        consum_points:consum_points - total_price,
+                        cumulant:cumulant - total_price
+                    })
+                    console.log('修改完毕',resUpdateMemeber)
+                }else{
+                    console.log('来恢复了',couponId)
+                    const _ = db.command
+                    const currentTime = this.getNowFormatDate()
+                    const resUMcoupon = await db.collection("my_coupon")
+                    .where({
+                        _id:couponId
+                    })
+                    .update({
+                        usedTime:_.inc(-1),
+                        updateTime:currentTime,
+                        residue:_.inc(1)
+                    })
+                    console.log('修改优惠卷结果',resUMcoupon)
+                    if(resUMcoupon.updated !== 1){
+                        return this.$message.error('恢复用户优惠卷次数失败！')
+                    }
+                    this.$message.success('恢复用户优惠卷次数成功！')
+                }
                 this.getOrderList()
             }else{
                 return this.$message.error('你没有权限进行此项操作！')
@@ -375,7 +396,7 @@ export default {
                     data: {
                         page: this.pagenum,
                         pagesize: this.pagesize,
-                        name:this.name,
+                        cardNo:this.name,
                         state:1,
                         sub_id:this.currentSub,
                         orderstr:'create_time',
@@ -387,7 +408,7 @@ export default {
                 const resT = await this.$cloudbase.callFunction({
                     name: "get-order",
                     data: {
-                        name:this.name,
+                        cardNo:this.name,
                         sub_id:this.currentSub,
                         state:1
                     },

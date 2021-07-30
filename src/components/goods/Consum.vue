@@ -214,10 +214,10 @@
                     <span style="color:red">注意:</span>当前为散客消费,确认请提交！
                 </div>
                 <div v-else-if="currentMember.balance >= countPrice && activeName !== 'fourth'">
-                    当前会员姓名为<span style="color:red"> ${{currentMember.name}}$ </span>,请确认信息后提交！
+                    当前会员姓名为<span style="color:red"> “{{currentMember.name}}” </span>,请确认信息后提交！
                 </div>
                 <div v-else-if="currentMember.balance < countPrice && activeName !== 'fourth'">
-                    当前会员姓名为<span style="color:red"> ${{currentMember.name}}$ </span>,请补齐余额后提交！
+                    当前会员姓名为<span style="color:red"> “{{currentMember.name}}” </span>,请补齐余额后提交！
                     
                 </div>
                 <div v-if="currentMember.balance < countPrice && activeName !== 'fourth'"  style="margin-top:10px !important">
@@ -245,7 +245,7 @@
                 </div>
 
                 <div v-if="activeName == 'fourth'">
-                    当前会员姓名为<span style="color:red"> ${{currentMember.name}}$ </span>,请确认消费商品编号为{{selectCoupon}}优惠卷信息后提交！
+                    当前会员姓名为<span style="color:red"> “{{currentMember.name}}” </span>,请确认消费商品优惠券信息后提交！
                 </div>
 
                 <span slot="footer" class="dialog-footer">
@@ -348,10 +348,10 @@
             </el-tag>
             <el-select v-if="activeName == 'fourth'" v-model="selectCoupon" clearable placeholder="请选择">
                 <el-option
-                v-for="item in currentMember.coupon_id"
-                :key="item.goods_no"
+                v-for="item in MyCoupon"
+                :key="item._id"
                 :label="item.goods_name"
-                :value="item.goods_no">
+                :value="item._id">
                 </el-option>
             </el-select>
             <!-- 备注 -->
@@ -556,7 +556,7 @@ export default {
             addBalance:0,
             
             //被选中的优惠卷的商品编号
-            selectCoupon:0,
+            selectCoupon:'',
             MyCoupon:[],
             currentCoupon:{}
         }
@@ -767,10 +767,14 @@ export default {
                 });
                 
                 const db = app.database();
+                const _ = db.command;
                 const result = await db.collection("my_coupon")
                 .where({
-                    _openid:currentMember._openid
+                    _openid:currentMember._openid,
+                    residue:_.gt(0),
+                    status:1
                 })
+                .orderBy('create_time','asc')
                 .get()
                 if(result.length == 0){
                     return this.$message.error('查询用户优惠卷集合信息失败！')
@@ -778,7 +782,7 @@ export default {
                 let MyCoupon = result.data
                 this.MyCoupon = MyCoupon
                 
-                console.log("此用户的所有优惠卷集合",this.MyCoupon)
+                console.log("此用户的所有优惠卷集合,看看是不是升序",this.MyCoupon)
             }
             if(currentMember.tel !== undefined){
                 this.payType = '会员余额'
@@ -844,10 +848,7 @@ export default {
                     return this.$message.error('你提交的商品，不在该顾客的优惠券中,请重新选择')
                 }
             }
-            
-            
             this.addOrder()
-
         },
         //自定义会员充值接口
         async customBalance(addBalance){
@@ -921,6 +922,7 @@ export default {
             let memberTel = '——'
             let cardNo = '——'
             let memberBalance = 0
+            let couponId = ''
             if(member.tel !== undefined){
                 if(member._openid){
                     memberOpenId = member._openid
@@ -934,6 +936,69 @@ export default {
             //获取当前的支付方式以及备注
             if(this.activeName == 'fourth'){
                 this.payType = '优惠券抵扣'
+                //修改该用户的我的优惠卷中的该商品编号的对应的优惠券的次数
+                //1.遍历我的优惠券
+                let couponList = this.MyCoupon
+                //根据ID查询用户信息接口
+                const app = cloudbase.init({
+                    env: "cloud1-9gt8jfexd120c4fc"
+                });
+                const currentTime = this.getNowFormatDate()
+                const db = app.database();
+                for(let j in couponList){
+                    //如果定位了某一张优惠券
+                    let goods_no = 0
+                    couponId = this.selectCoupon
+                    if(couponId == couponList[j]._id){
+                        goods_no = couponList[j].goods_no
+                        this.currentCoupon = couponList[j]
+                        let totalTime = parseInt(couponList[j].totalTime)
+                        let usedTime = parseInt(couponList[j].usedTime) +1
+                        let residue = parseInt(couponList[j].residue) -1
+                        //进行修改操作
+                        const resUMcoupon = await db.collection("my_coupon")
+                        .where({
+                            _id:couponId
+                        })
+                        .update({
+                            usedTime:usedTime,
+                            updateTime:currentTime,
+                            residue:residue
+                        })
+                        console.log('修改优惠卷结果',resUMcoupon)
+                        if(resUMcoupon.updated !== 1){
+                            return this.$message.error('修改用户优惠卷次数失败！')
+                        }
+                        this.$message.success('更新用户优惠卷次数成功！')
+                        if(totalTime == usedTime){
+                            //如果相等，则要删除该用户会员表中的优惠卷，并删除我的优惠卷表中的优惠卷数据
+                            // const result = await db.collection("my_coupon")
+                            // .where({
+                            //    _openid:this.currentMember._openid,
+                            //     goods_no:goods_no  
+                            // })
+                            // .remove()
+                            // if(result.deleted !== 1){
+                            //     return this.$message.error('删除该用户的优惠卷失败！')
+                            // }
+                            // this.$message.success('该用户次数已用完，删除优惠卷成功！')
+
+                            //删除用户表用的对应优惠卷
+                            const _ = db.command
+                            const res1 = await db.collection('member').doc(this.currentMember._id).update({
+                                coupon_id: _.pull({
+                                    goods_no:goods_no
+                                })
+                            })
+                            if(res1.updated !== 1){
+                                return this.$message.error('删除用户优惠卷次数失败！')
+                            }
+                            this.$message.success('删除用户优惠卷次数成功！')
+                            
+                        }
+                    }
+                }
+                
             }
             let payType = this.payType
             
@@ -957,6 +1022,7 @@ export default {
                     subId:this.currentSub,
                     recallId:'',
                     recallName:'',
+                    couponId:couponId,
                     recallCause:'',
                     shoppingList:shoppingList,
                     state:1,
@@ -981,69 +1047,6 @@ export default {
                 console.log('当前的计算商品为',shopping,memberBalance)
                 if(memberBalance !== 0 && this.activeName !== 'fourth'){
                     memberBalance = memberBalance - shopping.price
-                }
-                //如果当前为优惠卷消费
-                if(this.activeName == 'fourth'){
-                    //修改该用户的我的优惠卷中的该商品编号的对应的优惠券的次数
-                    //1.遍历我的优惠券
-                    let couponList= this.MyCoupon
-                    //根据ID查询用户信息接口
-                    const app = cloudbase.init({
-                        env: "cloud1-9gt8jfexd120c4fc"
-                    });
-                    const currentTime = this.getNowFormatDate()
-                    const db = app.database();
-                    for(let j in couponList){
-                        //如果定位了某一张优惠券
-                        let goods_no = shopping.goods_no
-                        if(goods_no == couponList[j].goods_no){
-                            this.currentCoupon = couponList[j]
-                            let totalTime = parseInt(couponList[j].totalTime)
-                            let usedTime = parseInt(couponList[j].usedTime) +1
-                            //进行修改操作
-                            const resUMcoupon = await db.collection("my_coupon")
-                            .where({
-                                _openid:this.currentMember._openid,
-                                goods_no:goods_no 
-                            })
-                            .update({
-                                usedTime:usedTime,
-                                updateTime:currentTime
-                            })
-                            console.log('修改优惠卷结果',resUMcoupon)
-                            if(resUMcoupon.updated !== 1){
-                                return this.$message.error('修改用户优惠卷次数失败！')
-                            }
-                            this.$message.success('更新用户优惠卷次数成功！')
-                            if(totalTime == usedTime){
-                                //如果相等，则要删除该用户会员表中的优惠卷，并删除我的优惠卷表中的优惠卷数据
-                                const result = await db.collection("my_coupon")
-                                .where({
-                                   _openid:this.currentMember._openid,
-                                    goods_no:goods_no  
-                                })
-                                .remove()
-                                if(result.deleted !== 1){
-                                    return this.$message.error('删除该用户的优惠卷失败！')
-                                }
-                                this.$message.success('该用户次数已用完，删除优惠卷成功！')
-
-                                //删除用户表用的对应优惠卷
-                                const _ = db.command
-                                const res1 = await db.collection('member').doc(this.currentMember._id).update({
-                                    coupon_id: _.pull({
-                                        goods_no:goods_no
-                                    })
-                                })
-                                if(res1.updated !== 1){
-                                    return this.$message.error('删除用户优惠卷次数失败！')
-                                }
-                                this.$message.success('删除用户优惠卷次数成功！')
-                                
-                            }
-                            
-                        }
-                    }
                 }
                 
                 //生成单条商品消费记录

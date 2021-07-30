@@ -97,7 +97,7 @@
             </el-pagination>
         </el-card>
         <el-dialog
-        :title="优惠券详情" :visible.sync="TimeDialogVisible"
+        title="优惠券详情" :visible.sync="TimeDialogVisible"
         width="50%" @close="TimeDialogClosed" >
             <el-table :data="myCoupons" size="small" style="margin-bottom:20px">
                 <el-table-column align="center" label="活动名称" prop="title" width="100"></el-table-column>
@@ -107,6 +107,7 @@
                 <el-table-column align="center" label="总价" prop="totalPrice" width="100"></el-table-column>
                 <el-table-column align="center" label="总次数" prop="totalTime" width="100"></el-table-column>
                 <el-table-column align="center" label="已使用" prop="usedTime" width="100"></el-table-column>
+                <el-table-column align="center" label="到期日期" prop="end_time" width="100"></el-table-column>
             </el-table>  
         </el-dialog>
         <!-- 充值会员页面的对话框 -->
@@ -768,12 +769,12 @@ export default {
                 }
             }
             console.log('当前选中的商品名称为',currentGoodsName)
-            let memberCoupons = memberInfo.coupon_id
-            for(let i = 0;i<memberCoupons.length;i++){
-                if(memberCoupons[i].goods_name == currentGoodsName){
-                    return this.$message.error('你充值的按次服务卷，此人已经购买过，请等消费完再进行购买！')
-                }
-            }
+            // let memberCoupons = memberInfo.coupon_id
+            // for(let i = 0;i<memberCoupons.length;i++){
+            //     if(memberCoupons[i].goods_name == currentGoodsName){
+            //         return this.$message.error('你充值的按次服务卷，此人已经购买过，请等消费完再进行购买！')
+            //     }
+            // }
             //获取数据库引用
             const app = cloudbase.init({
                 env: "cloud1-9gt8jfexd120c4fc"
@@ -804,6 +805,7 @@ export default {
                 totalTime:coupon.totalTime,
                 totalPrice:coupon.totalPrice,
                 usedTime:0,//已使用的次数
+                residue:coupon.totalTime,
                 target_money:coupon.target_money,
                 sub:coupon.sub,
                 indate:0,
