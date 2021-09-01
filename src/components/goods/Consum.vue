@@ -382,7 +382,6 @@
             </el-table>
 
             <!-- 选择员工 -->
-            
             <el-tag effect="dark">
                 选择员工
             </el-tag>
@@ -652,6 +651,8 @@ export default {
                 this.selected = 2
             }
             this.currentMember = {}
+            //检查当前数组中是否都已经有员工，开启支付按钮，如果添加新商品时需重新关闭
+            this.confirmAcount()
         },
         //切换会员和散客
         switchMember(){
@@ -659,6 +660,8 @@ export default {
             if(selected !== 1){
                 this.selected = 1
             }
+            //检查当前数组中是否都已经有员工，开启支付按钮，如果添加新商品时需重新关闭
+            this.confirmAcount()
         },
         handleSizeChange(newSize){
             this.pagesize = newSize
@@ -680,12 +683,12 @@ export default {
         },
         //结算订单对话框
         async accountOrder(){
-            this.accountDialogVisible = true
             let currentMember = this.currentMember
+            let selected = this.selected
             let shoppingList = this.shoppingList
             console.log('当前的购物车列表为',shoppingList)
             let type = shoppingList[0].type
-            if(type == 1){
+            if(type == 1 && selected ==1){
                 this.payTypes.splice(0,5,
                 {
                     value:1,
@@ -711,7 +714,32 @@ export default {
                     value:6,
                     lable:'医疗保险'
                 })
+            }else if(type == 1 && selected ==2){
+                this.payTypes.splice(0,4,
+                {
+                    value:2,
+                    lable:'微信'
+                },
+                {
+                    value:3,
+                    lable:'支付宝'
+                },
+                {
+                    value:4,
+                    lable:'现金'
+                },
+                {
+                    value:5,
+                    lable:'信用卡'
+                },
+                {
+                    value:6,
+                    lable:'医疗保险'
+                })
             }else if(type == 2){
+                if(selected !== 2){
+                    return this.$message.error('美团商品只能选择散客消费哦！')
+                }
                 this.payTypes.splice(0,5,
                 {
                     value:1,
@@ -738,6 +766,9 @@ export default {
                     lable:'医疗保险'
                 })
             }else if(type == 5){
+                if(selected !== 2){
+                    return this.$message.error('实体商品只能选择散客消费哦！')
+                }
                 this.payTypes.splice(0,4,
                 {
                     value:2,
@@ -761,6 +792,9 @@ export default {
                 })
             }else{
                 //遍历我的优惠卷
+                if(selected !== 1){
+                    return this.$message.error('按次商品只能选择会员消费哦！')
+                }
                 //根据ID查询用户信息接口
                 const app = cloudbase.init({
                     env: "cloud1-9gt8jfexd120c4fc"
@@ -787,6 +821,8 @@ export default {
             if(currentMember.tel !== undefined){
                 this.payType = '会员余额'
             }
+            
+            this.accountDialogVisible = true
             //计算当前订单的总价
             this.totalPrice()
         },
@@ -811,6 +847,17 @@ export default {
                     this.$message.error('当前用户余额不足，请先充值再进行提交')
                     this.addBalance = countPrice - member.balance
                 }
+            }else{
+                //获取当前购物车
+                let shoppingList = this.shoppingList
+                if(shoppingList.length>1){
+                    return this.$message.error('按次服务商品，一次只能提交一个，请一个一个提交！')
+                }
+                let selectCoupon= this.selectCoupon
+                if(selectCoupon == ''){
+                    return this.$message.error('请选择优惠券再确定！')
+                }
+                
             }
             
             //1.打开对话框
@@ -830,6 +877,10 @@ export default {
             if(this.activeName == 'fourth'){
                 //获取当前购物车
                 let shoppingList = this.shoppingList
+                if(shoppingList.length>1){
+                    return this.$message.error('按次服务商品，一次只能提交一个，请一个一个提交！')
+                }
+                
                 let isSelect = 0
                 //生成单据之后再生成对应的单条消费记录
                 for(var i in shoppingList){
@@ -847,6 +898,7 @@ export default {
                 if(isSelect == 0){
                     return this.$message.error('你提交的商品，不在该顾客的优惠券中,请重新选择')
                 }
+
             }
             this.addOrder()
         },
@@ -909,6 +961,7 @@ export default {
         async addOrder(){
             //关闭结算对话框
             this.accountDialogVisible = false
+            let activeName = this.activeName
             
             const app = cloudbase.init({
                 env: "cloud1-9gt8jfexd120c4fc"
@@ -927,14 +980,13 @@ export default {
                 if(member._openid){
                     memberOpenId = member._openid
                 }
-                
                 memberName = member.name
                 memberTel = member.tel
                 cardNo = member.card_no
                 memberBalance = member.balance
             }
             //获取当前的支付方式以及备注
-            if(this.activeName == 'fourth'){
+            if(activeName == 'fourth'){
                 this.payType = '优惠券抵扣'
                 //修改该用户的我的优惠卷中的该商品编号的对应的优惠券的次数
                 //1.遍历我的优惠券
@@ -946,7 +998,7 @@ export default {
                 const currentTime = this.getNowFormatDate()
                 const db = app.database();
                 for(let j in couponList){
-                    //如果定位了某一张优惠券
+                    //如果定位了某一张优惠券,减去数量
                     let goods_no = 0
                     couponId = this.selectCoupon
                     if(couponId == couponList[j]._id){
@@ -971,19 +1023,6 @@ export default {
                         }
                         this.$message.success('更新用户优惠卷次数成功！')
                         if(totalTime == usedTime){
-                            //如果相等，则要删除该用户会员表中的优惠卷，并删除我的优惠卷表中的优惠卷数据
-                            // const result = await db.collection("my_coupon")
-                            // .where({
-                            //    _openid:this.currentMember._openid,
-                            //     goods_no:goods_no  
-                            // })
-                            // .remove()
-                            // if(result.deleted !== 1){
-                            //     return this.$message.error('删除该用户的优惠卷失败！')
-                            // }
-                            // this.$message.success('该用户次数已用完，删除优惠卷成功！')
-
-                            //删除用户表用的对应优惠卷
                             const _ = db.command
                             const res1 = await db.collection('member').doc(this.currentMember._id).update({
                                 coupon_id: _.pull({
@@ -1045,7 +1084,7 @@ export default {
             
                 let shopping = shoppingList[i]
                 console.log('当前的计算商品为',shopping,memberBalance)
-                if(memberBalance !== 0 && this.activeName !== 'fourth'){
+                if(memberBalance !== 0 && activeName !== 'fourth'){
                     memberBalance = memberBalance - shopping.price
                 }
                 
@@ -1054,9 +1093,9 @@ export default {
                 //生成员工提成记录
                 await this.addDeductRecord(shopping,orderNo)
             }
-            
+            console.log('此时的商品类别为：'+activeName)
             //生成消费记录之后，如果是会员消费则对该会员进行扣费，积分，以及生成累积消费
-            if(member.tel !== undefined && this.activeName !== 'fourth'){
+            if(member.tel !== undefined && activeName !== 'fourth'){
                 const updateTime = this.getNowFormatDate()
                 let balance = parseInt(member.balance) + this.addBalance - this.countPrice
                 let cumulant = member.cumulant + this.countPrice
@@ -1090,9 +1129,11 @@ export default {
             this.remark = ''
             //清空
             this.newCardDeduct = []
+            this.MyCoupon = []
             this.currentMember = {}
             this.currentCoupon = {}
         },
+        //给
         //添加员工提成记录
         async addDeductRecord(shopping,orderNo){
             const app = cloudbase.init({
@@ -1130,9 +1171,11 @@ export default {
                 if(coupon.usedTime !== 0){
                     couponState = 1
                 }
-                let time = coupon.totalTime
+                let time = parseInt(coupon.totalTime)
                 let price = (total/time).toFixed(2)
-                deMoney = (price*deRate).toFixed(2)
+                let newPrice = parseFloat(price)
+                deMoney = (newPrice*deRate).toFixed(2)
+                console.log('检查优惠券NaN问题',total,time,price,newPrice,deMoney)
             }else{
                 deMoney = (shopping.price * deRate).toFixed(2)
             }
@@ -1187,7 +1230,6 @@ export default {
                         //计算提成
                         deNewMoney = (member.cash * deNewRate).toFixed(2)
                     }
-                    
                     console.log('新卡参数',deNewRate,deNewMoney)
                     const result = await app.callFunction({
                         name:'add-deductRecord',
@@ -1244,7 +1286,7 @@ export default {
                 name:'add-deductRecord',
                 data:{
                     employee:shopping.employee,
-                    price:shopping.price,
+                    price:parseInt(shopping.price),
                     deMoney:deMoney,
                     goodsType:shopping.type,
                     goodsNo:shopping.goods_no,
@@ -1280,6 +1322,7 @@ export default {
             //状态以及时间是必须的，采用云函数端调用的方法
             //最后再添加单据编号
             //添加消费记录接口
+            console.log('消费记录开始了')
             const app = cloudbase.init({
                 env: "cloud1-9gt8jfexd120c4fc"
             });
@@ -1316,7 +1359,7 @@ export default {
                     goodsname:shopping.goodsname,
                     orderNo:orderNo,
                     type:shopping.type,
-                    price:shopping.price,
+                    price:parseInt(shopping.price),
                     employee:shopping.employee,
                     memberOpenId:memberOpenId,
                     memberName:memberName,
@@ -1339,6 +1382,26 @@ export default {
                 return this.$message.error('生成消费记录失败')
             }
             this.$message.success('生成消费记录成功')
+            //发送统一服务消息
+            console.log('发送统一服务消息')
+            const sendResult =await app.callFunction({
+                name:'sendMessage',
+                data:{
+                    product_type:'商品名',
+                    goods_name:shopping.goodsname,
+                    openid:memberOpenId,
+                    card_no:card_no,
+                    create_time:currentTime,
+                    account_type:'会员卡号',
+                    remark:'欢迎再次购买！'
+                }
+            })
+
+            console.log('发送模板消息的结果为',sendResult,sendResult.result)
+            if(sendResult.result.errcode !== 0){
+                return this.$message.error('给会员发送消费账单消息失败')
+            }
+            this.$message.success('给会员发送消费账单消息成功>>>')
         },
         //展示Employee对话框
         async selectEmployee(index,row){
@@ -1420,15 +1483,19 @@ export default {
         //校验是否显示结算订单按钮的方法
         confirmAcount(){
             let newList = this.shoppingList
-            for(var j in newList){
-                if(newList[j].employee == undefined ||newList[j].employee == '' ){
-                    console.log('----------存在未选择员工的数据-----------')
-                    this.accountDisabled=true
-                    return
-                }else if(j == newList.length-1){
-                    this.accountDisabled=false
+            let selected = this.selected
+            if(selected !== 0){
+                for(var j in newList){
+                    if(newList[j].employee == undefined ||newList[j].employee == '' ){
+                        console.log('----------存在未选择员工的数据-----------')
+                        this.accountDisabled=true
+                        return
+                    }else if(j == newList.length-1){
+                        this.accountDisabled=false
+                    }
                 }
             }
+            
         },
         //校验提交修改内容
         confirmEdit(){

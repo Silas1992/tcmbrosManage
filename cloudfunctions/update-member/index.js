@@ -12,6 +12,7 @@ exports.main = async (event,context) => {
       card_no:event.cardNo,
       balance:event.balance,
       sub_id:event.sub_id,
+      haveCoupon:event.haveCoupon,
       type:event.type,
       saveValue:event.saveValue,
       member_coe:event.member_coe,

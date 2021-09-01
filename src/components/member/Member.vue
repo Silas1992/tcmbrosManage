@@ -99,6 +99,14 @@
         <el-dialog
         title="优惠券详情" :visible.sync="TimeDialogVisible"
         width="50%" @close="TimeDialogClosed" >
+            <el-table :data="memberInfo" size="small" style="margin-bottom:20px">
+                <el-table-column align="center" label="卡号" prop="card_no" width="100"></el-table-column>
+                <el-table-column align="center" label="姓名" prop="name" width="100"></el-table-column>
+                <el-table-column align="center" label="电话" prop="tel" width="150"></el-table-column>
+                <el-table-column align="center" label="余额" prop="balance" width="100"></el-table-column>
+                <el-table-column align="center" label="累计消费" prop="cumulant" width="100"></el-table-column>
+                <el-table-column align="center" label="会员积分" prop="consum_points" width="100"></el-table-column>
+            </el-table>  
             <el-table :data="myCoupons" size="small" style="margin-bottom:20px">
                 <el-table-column align="center" label="活动名称" prop="title" width="100"></el-table-column>
                 <el-table-column align="center" label="商品编号" prop="goods_no" width="100"></el-table-column>
@@ -107,6 +115,7 @@
                 <el-table-column align="center" label="总价" prop="totalPrice" width="100"></el-table-column>
                 <el-table-column align="center" label="总次数" prop="totalTime" width="100"></el-table-column>
                 <el-table-column align="center" label="已使用" prop="usedTime" width="100"></el-table-column>
+                <el-table-column align="center" label="剩余数" prop="residue" width="100"></el-table-column>
                 <el-table-column align="center" label="到期日期" prop="end_time" width="100"></el-table-column>
             </el-table>  
         </el-dialog>
@@ -676,7 +685,7 @@ export default {
                 name:'add-deductRecord',
                 data:{
                     employee:employeeName,
-                    price:coupon.totalPrice,
+                    price:parseInt(coupon.totalPrice),
                     deMoney:deNewMoney,
                     goodsType:0,
                     goodsNo:0,
@@ -743,7 +752,10 @@ export default {
         async confirmTimes(){
 
             let timeGoodNo = this.timeGood
-
+            let memberInfo = this.memberInfo[0]
+            if(memberInfo.tel == undefined){
+                return this.$message.error('请选择会员，才能提交哦！')
+            }
             if(timeGoodNo == 0){
                 return this.$message.error('请选择按次服务商品再提交！')
             }
@@ -756,10 +768,7 @@ export default {
             if(this.e_name == ''){
                 return this.$message.error('请选择提成人员再提交！')
             }
-            let memberInfo = this.memberInfo[0]
-            if(memberInfo.tel == undefined){
-                return this.$message.error('请选择会员，才能提交哦！')
-            }
+            
             let timeGoodslist = this.timeGoodslist
             //从我的优惠卷中遍历是否已存在该商品，如果存在，则直接返回
             let currentGoodsName = ''
@@ -805,7 +814,7 @@ export default {
                 totalTime:coupon.totalTime,
                 totalPrice:coupon.totalPrice,
                 usedTime:0,//已使用的次数
-                residue:coupon.totalTime,
+                residue:parseInt(coupon.totalTime),
                 target_money:coupon.target_money,
                 sub:coupon.sub,
                 indate:0,
@@ -863,6 +872,7 @@ export default {
                         _id:memberInfo._id,
                         cardNo:currentNo+'',
                         sub_id:this.currentSub,
+                        haveCoupon:true,
                         createTime:createTime
                     },  
                 })
@@ -874,7 +884,9 @@ export default {
             }
             
             //计算XIN优惠券提成
-            this.addTimesDeduct()
+            await this.addTimesDeduct()
+            //生成会员充值记录
+            await this.addRechargeRecord('按次服务券',0,coupon.totalPrice)
 
             //完成之后清空value值,否则下一个商品也是这个员工了
             this.e_name = ''
@@ -1036,7 +1048,7 @@ export default {
                 }else{
                     label = this.options[1].label
                 }
-                await this.addRechargeRecord(label,customBalance)
+                await this.addRechargeRecord(label,customBalance,cash)
             }else{
                 //3.计算提成比例，根据会员卡修改时间取出自从上次到现在的所有消费记录，
                 //  并计算出每个员工的费用与累计消费的费用比例，为该员工本次提成的比例
@@ -1166,7 +1178,7 @@ export default {
                 }
                 this.$message.success('充值成功！')
                 //生成会员充值记录
-                await this.addRechargeRecord('续卡',customBalance)
+                await this.addRechargeRecord('续卡',customBalance,cash)
             }
             
             
@@ -1174,7 +1186,7 @@ export default {
             this.getMemberList()
         },
         //生成充值记录
-        async addRechargeRecord(name,customBalance){
+        async addRechargeRecord(name,customBalance,cash){
             //添加商品列表，如果有会员添加其姓名ID最后添加remark以及支付方式
             //状态以及时间是必须的，采用云函数端调用的方法
             //最后再添加单据编号
@@ -1213,7 +1225,7 @@ export default {
                     goodsname:name,
                     orderNo:'',
                     type:3,
-                    price:customBalance,
+                    price:parseInt(cash),
                     memberBalance:memberBalance,
                     employee:'',
                     memberOpenId:memberOpenId,

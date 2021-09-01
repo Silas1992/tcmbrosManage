@@ -27,6 +27,7 @@ exports.main = async (event,context) => {
     query.card_no = _.eq(0)
   }else if(event.type == 3){
     query.coupon_id = _.not(_.size(0))
+    query.haveCoupon = true
   }
   //电话号码模糊搜索
   if (event.tel) {

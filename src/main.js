@@ -55,6 +55,20 @@ Vue.prototype.getNowFormatDate02 = function(date) {
   return currentDate
   
 }
+Vue.prototype.getNowFormatDate03 = function(date) {
+  var month = date.getMonth() + 1
+  var strDate = date.getDate()
+  if (month >= 1 && month <= 9) {
+    month = '0' + month
+  }
+  if (strDate >= 0 && strDate <= 9) {
+    strDate = '0' + strDate
+  }
+
+  var currentDate = date.getFullYear() + '/' + month + '/' + strDate
+  return currentDate
+  
+}
 Vue.prototype.getNowFormatDate01 = function() {
   var date = new Date()
   var month = date.getMonth() + 1

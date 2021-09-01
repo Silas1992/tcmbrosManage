@@ -21,6 +21,14 @@ exports.main = async (event,context) => {
       options: 'i', //大小写不区分
     })
   }
+  console.log('当前参数',event)
+  if(event.selected == 1){
+    query.create_time = _.gte(event.create_time)
+  }else if(event.selected == 2){
+    query.create_time = _.and(_.gte(event.sevenTime),_.lte(event.today))
+  }else if(event.selected == 3){
+    query.create_time = _.and(_.gte(event.thirtyTime),_.lte(event.today))
+  }
   
   //电话号码模糊搜索
   if (event.tel) {
@@ -41,8 +49,8 @@ exports.main = async (event,context) => {
   if(event.sub_id){
     query.sub_id = event.sub_id
   }
-  if(event.state){
-    query.state = event.state
+  if(event.sstate){
+    query.state = _.lt(2)
   }
   //如果存在时间区间
   if(event.startTime && event.endTime){
